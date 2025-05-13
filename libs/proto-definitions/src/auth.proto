@@ -1,0 +1,45 @@
+// libs/proto-definitions/src/auth.proto
+syntax = "proto3";
+
+package auth; // Package name
+
+// The service definition for AuthService
+service AuthService {
+  // Method for registering a user (example)
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  // Method for login (example)
+  rpc Login (LoginRequest) returns (LoginResponse);
+  // Method to check verification status (example)
+  rpc CheckVerificationStatus (UserIdRequest) returns (VerificationStatusResponse);
+}
+
+// --- Message Definitions ---
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  string message = 2; // e.g., "Registration successful, verification required"
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token = 1; // The JWT
+  string refresh_token = 2;
+}
+
+message UserIdRequest {
+  string user_id = 1;
+}
+
+message VerificationStatusResponse {
+  string user_id = 1;
+  string status = 2; // e.g., "UNVERIFIED", "PENDING", "VERIFIED", "FAILED"
+}
