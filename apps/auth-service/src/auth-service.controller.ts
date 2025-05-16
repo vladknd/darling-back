@@ -1,7 +1,7 @@
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { Metadata, ServerUnaryCall } from '@grpc/grpc-js';
-import { AuthServiceService } from './auth-service.service'; // Assuming this service holds logic
+import { AuthService } from './auth-service.service'; // Assuming this service holds logic
 import {
   AUTH_SERVICE_NAME,
   LoginRequest,
@@ -15,8 +15,8 @@ import {
 @Controller()
 export class AuthServiceController {
   constructor(
-    @Inject(AuthServiceService) // Inject the service
-    private readonly authService: AuthServiceService,
+    @Inject(AuthService) // Inject the service
+    private readonly authService: AuthService,
   ) {}
 
   // Maps to the 'Register' RPC method in auth.proto

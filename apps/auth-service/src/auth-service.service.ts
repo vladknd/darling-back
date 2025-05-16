@@ -11,7 +11,7 @@ import {
 } from '@app/proto-definitions/auth';
 
 @Injectable()
-export class AuthServiceService {
+export class AuthService {
   constructor(private configService: ConfigService) {
     // Example: Log DB host on startup (ensure config is loaded)
     console.log(
@@ -73,5 +73,19 @@ export class AuthServiceService {
     // Simulate finding a user
     const currentStatus = 'UNVERIFIED'; // Dummy status
     return { userId, status: currentStatus };
+  }
+
+  // Sample validateUser method for demonstration
+  async validateUser(username: string, password: string): Promise<any> {
+    // In a real app, you would query the database and compare hashed passwords
+    if (username === 'test@test.com' && password === 'password') {
+      return {
+        userId: 'user_123',
+        email: username,
+        roles: ['user'],
+        isVerified: true,
+      };
+    }
+    return null;
   }
 }
