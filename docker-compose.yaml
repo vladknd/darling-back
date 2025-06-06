@@ -1,0 +1,111 @@
+version: '3.8'
+services:
+  postgres_auth:
+    image: postgres:15
+    container_name: postgres_auth_db
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USERNAME:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth_password}
+      POSTGRES_DB: ${AUTH_DB_DATABASE:-auth_service_db}
+    ports:
+      - "${AUTH_DB_PORT:-5432}:5432" # Exposing on host's 5432
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  mongo_profile:
+    image: mongo:6 # Using Node 20+ for services, so Mongo 6 should be fine
+    container_name: mongo_profile_db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${PROFILE_DB_USERNAME:-profile_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${PROFILE_DB_PASSWORD:-profile_password}
+    ports:
+      - "${PROFILE_DB_PORT_HOST:-27017}:27017" # Exposing on host's 27017
+    volumes:
+      - mongo_profile_data:/data/db
+    networks:
+      - backend_network
+    restart: unless-stopped
+    command: ["mongod", "--quiet"] # To make logs cleaner
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq_broker
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "${RABBITMQ_NODE_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: apps/auth-service/Dockerfile
+    container_name: auth_service_app_dev
+    environment:
+      NODE_ENV: development
+      AUTH_SERVICE_PORT: ${AUTH_SERVICE_PORT:-50051} # Internal port for the service
+      AUTH_DB_HOST: postgres_auth
+      AUTH_DB_PORT: 5432 # Internal PostgreSQL port
+      AUTH_DB_USERNAME: ${AUTH_DB_USERNAME:-auth_user}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth_password}
+      AUTH_DB_DATABASE: ${AUTH_DB_DATABASE:-auth_service_db}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      RABBITMQ_URI: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672" # Connect to rabbitmq service name
+      RABBITMQ_AUTH_QUEUE: ${RABBITMQ_AUTH_QUEUE:-auth_events_queue}
+      CHOKIDAR_USEPOLLING: "true" # For hot-reloading in Docker
+    ports:
+      - "${AUTH_SERVICE_PORT_HOST:-50051}:${AUTH_SERVICE_PORT:-50051}" # Expose service port to host
+      # - "9230:9229" # Optional: For Node.js debugging (host:container)
+    depends_on:
+      - postgres_auth
+      - rabbitmq
+    volumes:
+      - ./apps/auth-service:/usr/src/app/apps/auth-service
+      - ./libs:/usr/src/app/libs
+      - /usr/src/app/node_modules # Preserve container's node_modules
+    networks:
+      - backend_network
+    restart: unless-stopped
+    # The CMD is in the Dockerfile for auth-service
+
+  # Placeholder for other services like profile-service, api-gateway
+  # profile-service:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/profile-service/Dockerfile
+  #   # ... similar configuration ...
+  #   environment:
+  #     PROFILE_SERVICE_PORT: ${PROFILE_SERVICE_PORT:-50052}
+  #     PROFILE_DB_HOST: mongo_profile
+  #     PROFILE_DB_PORT: 27017 # Internal MongoDB port
+  #     PROFILE_DB_USERNAME: ${PROFILE_DB_USERNAME:-profile_user}
+  #     PROFILE_DB_PASSWORD: ${PROFILE_DB_PASSWORD:-profile_password}
+  #     PROFILE_DB_DATABASE: ${PROFILE_DB_DATABASE:-profile_service_db}
+  #     # ...
+  #   ports:
+  #     - "${PROFILE_SERVICE_PORT_HOST:-50052}:${PROFILE_SERVICE_PORT:-50052}"
+  #   depends_on:
+  #     - mongo_profile
+  #   # ... volumes, networks, restart ...
+
+volumes:
+  postgres_auth_data:
+  mongo_profile_data:
+  rabbitmq_data:
+
+networks:
+  backend_network:
+    driver: bridge

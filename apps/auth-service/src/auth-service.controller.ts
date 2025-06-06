@@ -1,51 +1,76 @@
-import { Controller, Inject } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
-import { Metadata, ServerUnaryCall } from '@grpc/grpc-js';
-import { AuthService } from './auth-service.service'; // Assuming this service holds logic
+import { Controller, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { GrpcMethod, Payload, RpcException } from '@nestjs/microservices';
+import { AuthServiceService } from './auth-service.service';
 import {
   AUTH_SERVICE_NAME,
-  LoginRequest,
-  LoginResponse,
-  RegisterRequest,
-  RegisterResponse,
-  VerificationStatusResponse,
-  UserIdRequest,
-} from '@app/proto-definitions/auth'; // Assuming you export constants/types from the lib
+  RegisterRequest, RegisterResponse,
+  LoginRequest, LoginResponse,
+  RefreshAccessTokenRequest,
+  ValidateAccessTokenRequest, ValidateAccessTokenResponse,
+  UserIdRequest, VerificationStatusResponse,
+  ProcessIdvWebhookRequest, ProcessIdvWebhookResponse,
+} from '@app/proto-definitions/auth';
 
 @Controller()
 export class AuthServiceController {
-  constructor(
-    @Inject(AuthService) // Inject the service
-    private readonly authService: AuthService,
-  ) {}
+  private readonly logger = new Logger(AuthServiceController.name);
 
-  // Maps to the 'Register' RPC method in auth.proto
+  constructor(private readonly authService: AuthServiceService) {}
+
   @GrpcMethod(AUTH_SERVICE_NAME, 'Register')
-  register(
-    data: RegisterRequest,
-    metadata?: Metadata, // Optional metadata
-    call?: ServerUnaryCall<any, any>, // Optional call context
-  ): Promise<RegisterResponse> {
-    // Use Promise for async operations
-    console.log(`Received Register request for email: ${data.email}`);
-    return this.authService.registerUser(data); // Delegate to service
+  // If RegisterRequest was a class DTO with class-validator decorators:
+  // @UsePipes(new ValidationPipe({ transform: true, whitelist: true, exceptionFactory: (errors) => new RpcException(errors) }))
+  async register(@Payload() data: RegisterRequest): Promise<RegisterResponse> {
+    this.logger.log(`gRPC Register called with email: ${data.email?.substring(0,3)}...`);
+    // Basic validation for gRPC payloads can be done here or in the service
+    if (!data.email || !data.password) {
+        throw new RpcException('Email and password are required for registration.');
+    }
+    return this.authService.register(data);
   }
 
-  // Maps to the 'Login' RPC method
   @GrpcMethod(AUTH_SERVICE_NAME, 'Login')
-  login(data: LoginRequest): Promise<LoginResponse> {
-    console.log(`Received Login request for email: ${data.email}`);
-    return this.authService.loginUser(data); // Delegate to service
+  async login(@Payload() data: LoginRequest): Promise<LoginResponse> {
+    this.logger.log(`gRPC Login called for email: ${data.email?.substring(0,3)}...`);
+    if (!data.email || !data.password) {
+        throw new RpcException('Email and password are required for login.');
+    }
+    return this.authService.login(data);
   }
 
-  // Maps to 'CheckVerificationStatus'
-  @GrpcMethod(AUTH_SERVICE_NAME, 'CheckVerificationStatus')
-  checkVerificationStatus(
-    data: UserIdRequest,
-  ): Promise<VerificationStatusResponse> {
-    console.log(
-      `Received CheckVerificationStatus request for user: ${data.userId}`,
-    );
-    return this.authService.getVerificationStatus(data.userId); // Delegate
+  @GrpcMethod(AUTH_SERVICE_NAME, 'RefreshAccessToken')
+  async refreshAccessToken(@Payload() data: RefreshAccessTokenRequest): Promise<LoginResponse> {
+    this.logger.log(`gRPC RefreshAccessToken called.`);
+    if (!data.refreshToken) {
+        throw new RpcException('Refresh token is required.');
+    }
+    return this.authService.refreshAccessToken(data);
+  }
+
+  @GrpcMethod(AUTH_SERVICE_NAME, 'ValidateAccessToken')
+  async validateAccessToken(@Payload() data: ValidateAccessTokenRequest): Promise<ValidateAccessTokenResponse> {
+    this.logger.log(`gRPC ValidateAccessToken called.`);
+    if (!data.accessToken) {
+        throw new RpcException('Access token is required for validation.');
+    }
+    return this.authService.validateAccessToken(data);
+  }
+
+  @GrpcMethod(AUTH_SERVICE_NAME, 'GetVerificationStatus')
+  async getVerificationStatus(@Payload() data: UserIdRequest): Promise<VerificationStatusResponse> {
+    this.logger.log(`gRPC GetVerificationStatus called for userId: ${data.userId}`);
+    if (!data.userId) {
+        throw new RpcException('User ID is required.');
+    }
+    return this.authService.getVerificationStatus(data);
+  }
+
+  @GrpcMethod(AUTH_SERVICE_NAME, 'ProcessIdvWebhook')
+  async processIdvWebhook(@Payload() data: ProcessIdvWebhookRequest): Promise<ProcessIdvWebhookResponse> {
+    this.logger.log(`gRPC ProcessIdvWebhook called for userId: ${data.userId} with status ${data.newStatus}`);
+    if (!data.userId || !data.newStatus) {
+        throw new RpcException('User ID and new status are required for IDV webhook processing.');
+    }
+    return this.authService.processIdvWebhook(data);
   }
 }
