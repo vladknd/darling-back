@@ -1,21 +1,18 @@
 import { Controller, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { GrpcMethod, Payload, RpcException } from '@nestjs/microservices';
-import { AuthServiceService } from './auth-service.service';
+import { AuthService } from './auth-service.service';
 import {
   AUTH_SERVICE_NAME,
   RegisterRequest, RegisterResponse,
   LoginRequest, LoginResponse,
-  RefreshAccessTokenRequest,
-  ValidateAccessTokenRequest, ValidateAccessTokenResponse,
   UserIdRequest, VerificationStatusResponse,
-  ProcessIdvWebhookRequest, ProcessIdvWebhookResponse,
 } from '@app/proto-definitions/auth';
 
 @Controller()
 export class AuthServiceController {
   private readonly logger = new Logger(AuthServiceController.name);
 
-  constructor(private readonly authService: AuthServiceService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Register')
   // If RegisterRequest was a class DTO with class-validator decorators:
@@ -26,7 +23,7 @@ export class AuthServiceController {
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for registration.');
     }
-    return this.authService.register(data);
+    return this.authService.registerUser(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Login')
@@ -35,7 +32,7 @@ export class AuthServiceController {
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for login.');
     }
-    return this.authService.login(data);
+    return this.authService.loginUser(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'RefreshAccessToken')

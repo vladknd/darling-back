@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../interfaces/jwt-payload.interface'; // Ensure path is correct
 import { UserCredentialRepository } from '../users/repositories/user-credential.repository'; // To verify user existence from DB
 import { JWT_ACCESS_SECRET_KEY } from '../constants'; // Ensure path is correct
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') { // Naming the strategy 'jwt'

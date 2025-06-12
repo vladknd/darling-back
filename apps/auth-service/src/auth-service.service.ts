@@ -88,4 +88,20 @@ export class AuthService {
     }
     return null;
   }
+
+  async validateAccessToken(data: ValidateAccessTokenRequest): Promise<ValidateAccessTokenResponse> {
+    // --- TODO: ---
+    // 1. Validate the access token
+    // --- Placeholder ---
+    console.log(`Validating access token ${data.accessToken}... (Placeholder)`);
+    return { isValid: true };
+  }
+
+  async refreshAccessToken(data: RefreshAccessTokenRequest): Promise<RefreshAccessTokenResponse> {
+    // --- TODO: ---
+    // 1. Refresh the access token
+    // --- Placeholder ---
+    console.log(`Refreshing access token ${data.refreshToken}... (Placeholder)`);
+    return { accessToken: 'new_access_token' };
+  }
 }
