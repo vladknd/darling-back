@@ -1,32 +1,30 @@
-import { Controller, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
 import { GrpcMethod, Payload, RpcException } from '@nestjs/microservices';
 import { AuthService } from './auth-service.service';
 import {
   AUTH_SERVICE_NAME,
+  AuthServiceController as IAuthServiceController,
   RegisterRequest, RegisterResponse,
   LoginRequest, LoginResponse,
-  RefreshAccessTokenRequest, // <<< THIS WAS MISSING, NOW ADDED
+  RefreshAccessTokenRequest,
   ValidateAccessTokenRequest, ValidateAccessTokenResponse,
   UserIdRequest, VerificationStatusResponse,
   ProcessIdvWebhookRequest, ProcessIdvWebhookResponse,
-} from '@app/proto-definitions/auth'; // Importing the generated interfaces
+} from '@app/proto-definitions/auth';
 
 @Controller()
-export class AuthServiceController {
+export class AuthServiceController implements IAuthServiceController {
   private readonly logger = new Logger(AuthServiceController.name);
 
   constructor(private readonly authService: AuthService) {}
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Register')
-  // If RegisterRequest was a class DTO with class-validator decorators:
-  // @UsePipes(new ValidationPipe({ transform: true, whitelist: true, exceptionFactory: (errors) => new RpcException(errors) }))
   async register(@Payload() data: RegisterRequest): Promise<RegisterResponse> {
     this.logger.log(`gRPC Register called with email: ${data.email?.substring(0,3)}...`);
-    // Basic validation for gRPC payloads can be done here or in the service
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for registration.');
     }
-    return this.authService.registerUser(data);
+    return this.authService.register(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Login')
@@ -35,7 +33,7 @@ export class AuthServiceController {
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for login.');
     }
-    return this.authService.loginUser(data);
+    return this.authService.login(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'RefreshAccessToken')

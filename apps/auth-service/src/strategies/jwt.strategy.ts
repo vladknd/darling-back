@@ -2,7 +2,7 @@
 // Purpose: Passport strategy for validating JWTs.
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { UsersService } from '../users/users.service';
@@ -20,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') { // Naming t
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Standard extraction from 'Bearer <token>' header
       ignoreExpiration: false, // Passport-jwt will automatically handle expired tokens
       secretOrKey: configService.get<string>(JWT_ACCESS_SECRET_KEY),
-    } as StrategyOptions);
+    });
     this.logger.log('JwtStrategy initialized.');
   }
 
