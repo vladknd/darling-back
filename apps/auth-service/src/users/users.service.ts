@@ -5,7 +5,7 @@ import { UserCredentialRepository } from './repositories/user-credential.reposit
 import { RefreshTokenRepository } from './repositories/refresh-token.repository';
 import { UserCredential, VerificationStatus } from './entities/user-credential.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { RegisterRequest } from '@app/proto-definitions/auth'; // Ensure path is correct
+import { RegisterRequest } from '@app/proto-definitions/auth';
 
 @Injectable()
 export class UsersService {
@@ -28,18 +28,12 @@ export class UsersService {
 
   async findById(id: string): Promise<UserCredential | null> {
     this.logger.debug(`Finding user credential by ID: ${id}`);
-    const user = await this.userCredentialRepository.findById(id);
-    // It's often better for the calling service (AuthServiceService) to decide if NotFoundException is appropriate.
-    // For example, during login, if user is not found, we throw "Invalid credentials", not "User not found".
-    // if (!user) {
-    //   throw new NotFoundException(`UserCredential with ID ${id} not found.`);
-    // }
-    return user;
+    return this.userCredentialRepository.findById(id);
   }
 
   async updateUserVerificationStatus(userId: string, status: VerificationStatus): Promise<UserCredential> {
     this.logger.log(`Updating verification status for user ID: ${userId} to ${status}`);
-    const user = await this.findById(userId); // Use this.findById to ensure consistent user fetching
+    const user = await this.findById(userId);
     if (!user) {
       this.logger.warn(`Attempted to update verification status for non-existent user ID: ${userId}`);
       throw new NotFoundException(`UserCredential with ID ${userId} not found for verification update.`);
@@ -49,15 +43,11 @@ export class UsersService {
 
   async storeRefreshToken(userCredential: UserCredential, token: string, expiresAt: Date): Promise<RefreshToken> {
     this.logger.debug(`Storing refresh token for user ID: ${userCredential.id}`);
-    // Optional: Implement logic to limit number of active refresh tokens per user
-    // Or, as done in RefreshTokenRepository, revoke all other active tokens for this user.
-    // await this.refreshTokenRepository.revokeAllForUser(userCredential.id);
     return this.refreshTokenRepository.createAndSave(userCredential, token, expiresAt);
   }
 
   async findActiveRefreshToken(token: string): Promise<RefreshToken | null> {
     this.logger.debug(`Finding active refresh token`);
-    // The repository method findByToken already checks for isRevoked: false and includes userCredential
     const refreshToken = await this.refreshTokenRepository.findByToken(token);
     if (refreshToken && refreshToken.expiresAt < new Date()) {
         this.logger.warn(`Found refresh token but it has expired in DB: ${token.substring(0,10)}...`);

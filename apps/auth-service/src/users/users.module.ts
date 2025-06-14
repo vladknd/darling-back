@@ -10,18 +10,14 @@ import { RefreshTokenRepository } from './repositories/refresh-token.repository'
 
 @Module({
   imports: [
-    // This makes the standard TypeORM Repository<UserCredential> and Repository<RefreshToken>
-    // available for injection if UserCredentialRepository and RefreshTokenRepository
-    // were not extending them or if you wanted to inject the base repository directly.
-    // Since our custom repositories extend TypeORM's Repository and are provided below,
-    // this forFeature call primarily ensures TypeORM is aware of these entities.
     TypeOrmModule.forFeature([UserCredential, RefreshToken]),
   ],
   providers: [
     UsersService,
-    UserCredentialRepository, // Provide your custom repository
-    RefreshTokenRepository,   // Provide your custom repository
+    UserCredentialRepository,
+    RefreshTokenRepository,
   ],
   exports: [UsersService], // Export UsersService so AuthServiceService can inject and use it
 })
 export class UsersModule {}
+
