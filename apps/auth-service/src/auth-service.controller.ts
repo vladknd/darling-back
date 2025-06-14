@@ -5,8 +5,11 @@ import {
   AUTH_SERVICE_NAME,
   RegisterRequest, RegisterResponse,
   LoginRequest, LoginResponse,
+  RefreshAccessTokenRequest, // <<< THIS WAS MISSING, NOW ADDED
+  ValidateAccessTokenRequest, ValidateAccessTokenResponse,
   UserIdRequest, VerificationStatusResponse,
-} from '@app/proto-definitions/auth';
+  ProcessIdvWebhookRequest, ProcessIdvWebhookResponse,
+} from '@app/proto-definitions/auth'; // Importing the generated interfaces
 
 @Controller()
 export class AuthServiceController {
