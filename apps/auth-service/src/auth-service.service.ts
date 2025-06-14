@@ -18,6 +18,7 @@ import {
 import { UsersService } from './users/users.service';
 import {
   BCRYPT_SALT_ROUNDS_KEY,
+  JWT_ACCESS_SECRET_KEY,
   JWT_REFRESH_EXPIRES_IN_KEY,
   JWT_REFRESH_SECRET_KEY,
 } from './constants';

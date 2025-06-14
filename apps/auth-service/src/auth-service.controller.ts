@@ -24,7 +24,7 @@ export class AuthServiceController implements IAuthServiceController {
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for registration.');
     }
-    return this.authService.register(data);
+    return this.authService.registerUser(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Login')
@@ -33,7 +33,7 @@ export class AuthServiceController implements IAuthServiceController {
     if (!data.email || !data.password) {
         throw new RpcException('Email and password are required for login.');
     }
-    return this.authService.login(data);
+    return this.authService.loginUser(data);
   }
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'RefreshAccessToken')

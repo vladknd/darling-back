@@ -1,34 +1,15 @@
-// File: ./your-dating-app-backend/libs/proto-definitions/src/auth.proto
-// Purpose: Protocol Buffer definition for the AuthService gRPC interface.
 syntax = "proto3";
 
 package auth;
 
-// Main service definition for AuthService.
-// These are the RPC methods that will be exposed by your auth-service microservice.
 service AuthService {
-  // Creates a new user credential record.
-  rpc Register (RegisterRequest) returns (RegisterResponse);
-
-  // Authenticates a user and returns access/refresh tokens.
-  rpc Login (LoginRequest) returns (LoginResponse);
-
-  // Generates a new access token using a valid refresh token.
-  rpc RefreshAccessToken (RefreshAccessTokenRequest) returns (LoginResponse);
-
-  // Retrieves the current identity verification status for a user.
-  rpc GetVerificationStatus (UserIdRequest) returns (VerificationStatusResponse);
-
-  // Called by the ApiGateway after it receives and validates a webhook from an Identity Verification provider.
-  rpc ProcessIdvWebhook (ProcessIdvWebhookRequest) returns (ProcessIdvWebhookResponse);
-
-  // Optional: For token introspection by the ApiGateway or other trusted internal services.
-  rpc ValidateAccessToken (ValidateAccessTokenRequest) returns (ValidateAccessTokenResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshAccessToken(RefreshAccessTokenRequest) returns (LoginResponse);
+  rpc GetVerificationStatus(UserIdRequest) returns (VerificationStatusResponse);
+  rpc ProcessIdvWebhook(ProcessIdvWebhookRequest) returns (ProcessIdvWebhookResponse);
+  rpc ValidateAccessToken(ValidateAccessTokenRequest) returns (ValidateAccessTokenResponse);
 }
-
-
-// --- Message Definitions ---
-// Each message corresponds to the request or response object for an RPC method.
 
 message RegisterRequest {
   string email = 1;
@@ -37,7 +18,7 @@ message RegisterRequest {
 
 message RegisterResponse {
   string userId = 1;
-  string message = 2; // e.g., "Registration successful, verification required."
+  string message = 2;
 }
 
 message LoginRequest {
@@ -49,7 +30,7 @@ message LoginResponse {
   string accessToken = 1;
   string refreshToken = 2;
   string userId = 3;
-  string verificationStatus = 4; // e.g., "UNVERIFIED", "VERIFIED"
+  string verificationStatus = 4;
 }
 
 message RefreshAccessTokenRequest {
@@ -62,15 +43,14 @@ message UserIdRequest {
 
 message VerificationStatusResponse {
   string userId = 1;
-  string status = 2; // e.g., "UNVERIFIED", "PENDING", "VERIFIED", "FAILED", "REJECTED"
+  string status = 2;
 }
 
-// Request from ApiGateway to AuthService after ApiGateway receives an IDV webhook
 message ProcessIdvWebhookRequest {
-  string userId = 1; // User ID identified by the IDV provider or your internal mapping
-  string newStatus = 2; // e.g., "VERIFIED", "FAILED" (should match VerificationStatus enum values)
-  string idvProviderReference = 3; // Optional: reference from IDV provider
-  string details = 4; // Optional JSON string of details from IDV webhook payload
+  string userId = 1;
+  string newStatus = 2;
+  string idvProviderReference = 3;
+  string details = 4;
 }
 
 message ProcessIdvWebhookResponse {
@@ -87,7 +67,7 @@ message ValidateAccessTokenResponse {
   string email = 2;
   string verificationStatus = 3;
   bool isValid = 4;
-  repeated string roles = 5; // If you implement roles
-  int64 exp = 6;             // Expiration timestamp (seconds since epoch)
-  int64 iat = 7;             // Issued at timestamp (seconds since epoch)
+  repeated string roles = 5;
+  int64 exp = 6;
+  int64 iat = 7;
 }

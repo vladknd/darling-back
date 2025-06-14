@@ -9,16 +9,16 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import * as Joi from 'joi';
 
 import { AuthServiceController } from './auth-service.controller';
-import { AuthServiceService } from './auth-service.service';
+import { AuthService } from './auth-service.service';
 import { UsersModule } from './users/users.module';
 import { UserCredential } from './users/entities/user-credential.entity';
 import { RefreshToken } from './users/entities/refresh-token.entity';
-import { JwtStrategy } from './auth/strategies/jwt.strategy';
+import { JwtStrategy } from './strategies/jwt.strategy';
 import {
   JWT_ACCESS_SECRET_KEY, JWT_ACCESS_EXPIRATION_KEY, JWT_REFRESH_SECRET_KEY,
   JWT_REFRESH_EXPIRES_IN_KEY, RABBITMQ_URI_KEY, RABBITMQ_AUTH_QUEUE_KEY,
   AUTH_SERVICE_RABBITMQ_CLIENT, BCRYPT_SALT_ROUNDS_KEY
-} from './auth/constants';
+} from './constants';
 
 @Module({
   imports: [
@@ -93,6 +93,6 @@ import {
     ]),
   ],
   controllers: [AuthServiceController], // Your gRPC controller
-  providers: [AuthServiceService, JwtStrategy, Logger], // Your main service and Passport strategy
+  providers: [AuthService, JwtStrategy, Logger], // Your main service and Passport strategy
 })
 export class AuthServiceModule {}

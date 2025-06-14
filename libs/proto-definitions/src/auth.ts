@@ -10,11 +10,6 @@ import { type handleUnaryCall, type UntypedServiceImplementation } from "@grpc/g
 import { GrpcMethod, GrpcStreamMethod } from "@nestjs/microservices";
 import { Observable } from "rxjs";
 
-/**
- * File: ./your-dating-app-backend/libs/proto-definitions/src/auth.proto
- * Purpose: Protocol Buffer definition for the AuthService gRPC interface.
- */
-
 export interface RegisterRequest {
   email: string;
   password: string;
@@ -22,7 +17,6 @@ export interface RegisterRequest {
 
 export interface RegisterResponse {
   userId: string;
-  /** e.g., "Registration successful, verification required." */
   message: string;
 }
 
@@ -35,7 +29,6 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   userId: string;
-  /** e.g., "UNVERIFIED", "VERIFIED" */
   verificationStatus: string;
 }
 
@@ -49,19 +42,13 @@ export interface UserIdRequest {
 
 export interface VerificationStatusResponse {
   userId: string;
-  /** e.g., "UNVERIFIED", "PENDING", "VERIFIED", "FAILED", "REJECTED" */
   status: string;
 }
 
-/** Request from ApiGateway to AuthService after ApiGateway receives an IDV webhook */
 export interface ProcessIdvWebhookRequest {
-  /** User ID identified by the IDV provider or your internal mapping */
   userId: string;
-  /** e.g., "VERIFIED", "FAILED" (should match VerificationStatus enum values) */
   newStatus: string;
-  /** Optional: reference from IDV provider */
   idvProviderReference: string;
-  /** Optional JSON string of details from IDV webhook payload */
   details: string;
 }
 
@@ -79,11 +66,8 @@ export interface ValidateAccessTokenResponse {
   email: string;
   verificationStatus: string;
   isValid: boolean;
-  /** If you implement roles */
   roles: string[];
-  /** Expiration timestamp (seconds since epoch) */
   exp: number;
-  /** Issued at timestamp (seconds since epoch) */
   iat: number;
 }
 
@@ -681,70 +665,36 @@ export const ValidateAccessTokenResponse: MessageFns<ValidateAccessTokenResponse
   },
 };
 
-/**
- * Main service definition for AuthService.
- * These are the RPC methods that will be exposed by your auth-service microservice.
- */
-
 export interface AuthServiceClient {
-  /** Creates a new user credential record. */
-
   register(request: RegisterRequest): Observable<RegisterResponse>;
-
-  /** Authenticates a user and returns access/refresh tokens. */
 
   login(request: LoginRequest): Observable<LoginResponse>;
 
-  /** Generates a new access token using a valid refresh token. */
-
   refreshAccessToken(request: RefreshAccessTokenRequest): Observable<LoginResponse>;
-
-  /** Retrieves the current identity verification status for a user. */
 
   getVerificationStatus(request: UserIdRequest): Observable<VerificationStatusResponse>;
 
-  /** Called by the ApiGateway after it receives and validates a webhook from an Identity Verification provider. */
-
   processIdvWebhook(request: ProcessIdvWebhookRequest): Observable<ProcessIdvWebhookResponse>;
-
-  /** Optional: For token introspection by the ApiGateway or other trusted internal services. */
 
   validateAccessToken(request: ValidateAccessTokenRequest): Observable<ValidateAccessTokenResponse>;
 }
 
-/**
- * Main service definition for AuthService.
- * These are the RPC methods that will be exposed by your auth-service microservice.
- */
-
 export interface AuthServiceController {
-  /** Creates a new user credential record. */
-
   register(request: RegisterRequest): Promise<RegisterResponse> | Observable<RegisterResponse> | RegisterResponse;
 
-  /** Authenticates a user and returns access/refresh tokens. */
-
   login(request: LoginRequest): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
-
-  /** Generates a new access token using a valid refresh token. */
 
   refreshAccessToken(
     request: RefreshAccessTokenRequest,
   ): Promise<LoginResponse> | Observable<LoginResponse> | LoginResponse;
 
-  /** Retrieves the current identity verification status for a user. */
-
   getVerificationStatus(
     request: UserIdRequest,
   ): Promise<VerificationStatusResponse> | Observable<VerificationStatusResponse> | VerificationStatusResponse;
 
-  /** Called by the ApiGateway after it receives and validates a webhook from an Identity Verification provider. */
-
   processIdvWebhook(
     request: ProcessIdvWebhookRequest,
   ): Promise<ProcessIdvWebhookResponse> | Observable<ProcessIdvWebhookResponse> | ProcessIdvWebhookResponse;
-
-  /** Optional: For token introspection by the ApiGateway or other trusted internal services. */
 
   validateAccessToken(
     request: ValidateAccessTokenRequest,
@@ -775,13 +725,8 @@ export function AuthServiceControllerMethods() {
 
 export const AUTH_SERVICE_NAME = "AuthService";
 
-/**
- * Main service definition for AuthService.
- * These are the RPC methods that will be exposed by your auth-service microservice.
- */
 export type AuthServiceService = typeof AuthServiceService;
 export const AuthServiceService = {
-  /** Creates a new user credential record. */
   register: {
     path: "/auth.AuthService/Register",
     requestStream: false,
@@ -791,7 +736,6 @@ export const AuthServiceService = {
     responseSerialize: (value: RegisterResponse) => Buffer.from(RegisterResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => RegisterResponse.decode(value),
   },
-  /** Authenticates a user and returns access/refresh tokens. */
   login: {
     path: "/auth.AuthService/Login",
     requestStream: false,
@@ -801,7 +745,6 @@ export const AuthServiceService = {
     responseSerialize: (value: LoginResponse) => Buffer.from(LoginResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => LoginResponse.decode(value),
   },
-  /** Generates a new access token using a valid refresh token. */
   refreshAccessToken: {
     path: "/auth.AuthService/RefreshAccessToken",
     requestStream: false,
@@ -812,7 +755,6 @@ export const AuthServiceService = {
     responseSerialize: (value: LoginResponse) => Buffer.from(LoginResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => LoginResponse.decode(value),
   },
-  /** Retrieves the current identity verification status for a user. */
   getVerificationStatus: {
     path: "/auth.AuthService/GetVerificationStatus",
     requestStream: false,
@@ -823,7 +765,6 @@ export const AuthServiceService = {
       Buffer.from(VerificationStatusResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => VerificationStatusResponse.decode(value),
   },
-  /** Called by the ApiGateway after it receives and validates a webhook from an Identity Verification provider. */
   processIdvWebhook: {
     path: "/auth.AuthService/ProcessIdvWebhook",
     requestStream: false,
@@ -834,7 +775,6 @@ export const AuthServiceService = {
       Buffer.from(ProcessIdvWebhookResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => ProcessIdvWebhookResponse.decode(value),
   },
-  /** Optional: For token introspection by the ApiGateway or other trusted internal services. */
   validateAccessToken: {
     path: "/auth.AuthService/ValidateAccessToken",
     requestStream: false,
@@ -849,17 +789,11 @@ export const AuthServiceService = {
 } as const;
 
 export interface AuthServiceServer extends UntypedServiceImplementation {
-  /** Creates a new user credential record. */
   register: handleUnaryCall<RegisterRequest, RegisterResponse>;
-  /** Authenticates a user and returns access/refresh tokens. */
   login: handleUnaryCall<LoginRequest, LoginResponse>;
-  /** Generates a new access token using a valid refresh token. */
   refreshAccessToken: handleUnaryCall<RefreshAccessTokenRequest, LoginResponse>;
-  /** Retrieves the current identity verification status for a user. */
   getVerificationStatus: handleUnaryCall<UserIdRequest, VerificationStatusResponse>;
-  /** Called by the ApiGateway after it receives and validates a webhook from an Identity Verification provider. */
   processIdvWebhook: handleUnaryCall<ProcessIdvWebhookRequest, ProcessIdvWebhookResponse>;
-  /** Optional: For token introspection by the ApiGateway or other trusted internal services. */
   validateAccessToken: handleUnaryCall<ValidateAccessTokenRequest, ValidateAccessTokenResponse>;
 }
 
