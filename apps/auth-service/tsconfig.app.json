@@ -2,9 +2,6 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "declaration": false,
-    "paths": {
-      "@app/proto-definitions/*": ["libs/proto-definitions/src/*"]
-    },
     "outDir": "../../dist/apps/auth-service"
   },
   "include": ["src/**/*"],

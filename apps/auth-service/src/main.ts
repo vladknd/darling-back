@@ -12,7 +12,7 @@ async function bootstrap() {
   const port = configService.get<string>('AUTH_SERVICE_PORT', '50051');
   
   // Corrected path relative to the final position of this file in `dist/apps/auth-service/`
-  const protoPath = join(__dirname, '../../libs/proto-definitions/src/auth.proto');
+  const protoPath = join(__dirname, '../../../libs/proto-definitions/src/auth.proto');
   await tempAppContext.close();
 
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
