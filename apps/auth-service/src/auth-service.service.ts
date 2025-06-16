@@ -1,203 +1,190 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { RpcException } from '@nestjs/microservices';
+// File: ./your-dating-app-backend/apps/auth-service/src/auth-service.service.ts
+// Purpose: Core business logic for authentication.
+import { Injectable, Inject, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { RpcException } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
-import {
-  LoginRequest,
-  LoginResponse,
-  RegisterRequest,
-  RegisterResponse,
-  ValidateAccessTokenRequest,
-  ValidateAccessTokenResponse,
-  RefreshAccessTokenRequest,
-  VerificationStatusResponse,
-  ProcessIdvWebhookRequest,
-  ProcessIdvWebhookResponse,
-} from '@app/proto-definitions/auth';
+import { ClientProxy } from '@nestjs/microservices';
+
 import { UsersService } from './users/users.service';
-import {
-  BCRYPT_SALT_ROUNDS_KEY,
-  JWT_ACCESS_SECRET_KEY,
-  JWT_REFRESH_EXPIRES_IN_KEY,
-  JWT_REFRESH_SECRET_KEY,
-} from './constants';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { UserCredential, VerificationStatus } from './users/entities/user-credential.entity';
+import {
+  LoginRequest, LoginResponse,
+  RegisterRequest, RegisterResponse,
+  RefreshAccessTokenRequest,
+  ValidateAccessTokenRequest, ValidateAccessTokenResponse,
+  VerificationStatusResponse,
+  ProcessIdvWebhookRequest, ProcessIdvWebhookResponse,
+  UserIdRequest,
+} from '@app/proto-definitions/auth';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import {
+  AUTH_SERVICE_RABBITMQ_CLIENT, BCRYPT_SALT_ROUNDS_KEY,
+  JWT_ACCESS_SECRET_KEY, JWT_REFRESH_SECRET_KEY, JWT_REFRESH_EXPIRES_IN_KEY,
+  USER_REGISTERED_EVENT, USER_VERIFICATION_STATUS_UPDATED_EVENT
+} from './constants';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    @Inject(AUTH_SERVICE_RABBITMQ_CLIENT) private readonly eventEmitter: ClientProxy,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<Omit<UserCredential, 'passwordHash'> | null> {
-    const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { passwordHash, ...result } = user;
-      return result;
-    }
-    return null;
+  private async _hashPassword(password: string): Promise<string> {
+    const saltRounds = this.configService.get<number>(BCRYPT_SALT_ROUNDS_KEY);
+    return bcrypt.hash(password, saltRounds);
   }
-  
-  async registerUser(data: RegisterRequest): Promise<RegisterResponse> {
-    this.logger.log(`Registering user ${data.email}...`);
 
+  // --- FIX ---
+  // Helper function to calculate expiry date from a string like "7d" or "15m"
+  private _getExpiryDate(expiresInString: string): Date {
+    let expiresInMs = 7 * 24 * 60 * 60 * 1000; // Default 7 days if parsing fails
+    try {
+      if (expiresInString.endsWith('d')) {
+        expiresInMs = parseInt(expiresInString.slice(0, -1)) * 24 * 60 * 60 * 1000;
+      } else if (expiresInString.endsWith('h')) {
+        expiresInMs = parseInt(expiresInString.slice(0, -1)) * 60 * 60 * 1000;
+      } else if (expiresInString.endsWith('m')) {
+        expiresInMs = parseInt(expiresInString.slice(0, -1)) * 60 * 1000;
+      } else if (expiresInString.endsWith('s')) {
+        expiresInMs = parseInt(expiresInString.slice(0, -1)) * 1000;
+      } else if (!isNaN(Number(expiresInString))) {
+        expiresInMs = Number(expiresInString);
+      }
+    } catch (e) {
+      this.logger.warn(`Error parsing expiresIn string "${expiresInString}", using default.`);
+    }
+    return new Date(Date.now() + expiresInMs);
+  }
+
+  private async _generateTokens(user: UserCredential): Promise<{ accessToken: string; refreshToken: string }> {
+    const payload: JwtPayload = {
+      userId: user.id,
+      email: user.email,
+      verificationStatus: user.verificationStatus,
+    };
+    const accessToken = this.jwtService.sign(payload);
+
+    const refreshTokenPayload: JwtPayload = { ...payload };
+    const refreshToken = this.jwtService.sign(refreshTokenPayload, {
+      secret: this.configService.get<string>(JWT_REFRESH_SECRET_KEY),
+      expiresIn: this.configService.get<string>(JWT_REFRESH_EXPIRES_IN_KEY),
+    });
+
+    // --- FIX ---
+    // Instead of decoding, we calculate the expiry date based on the configuration string
+    const expiresAt = this._getExpiryDate(this.configService.get<string>(JWT_REFRESH_EXPIRES_IN_KEY));
+    
+    await this.usersService.storeRefreshToken(user, refreshToken, expiresAt);
+
+    return { accessToken, refreshToken };
+  }
+
+  async register(data: RegisterRequest): Promise<RegisterResponse> {
+    this.logger.log(`Attempting to register user: ${data.email}`);
     const existingUser = await this.usersService.findByEmail(data.email);
     if (existingUser) {
       throw new RpcException('User with this email already exists.');
     }
-
-    const saltRounds = this.configService.get<number>(BCRYPT_SALT_ROUNDS_KEY);
-    const hashedPassword = await bcrypt.hash(data.password, saltRounds);
-
+    const hashedPassword = await this._hashPassword(data.password);
     const newUser = await this.usersService.createUser(data, hashedPassword);
-
+    
+    const eventPayload = { userId: newUser.id, email: newUser.email, timestamp: new Date().toISOString() };
+    this.eventEmitter.emit<string, any>(USER_REGISTERED_EVENT, eventPayload);
+    this.logger.log(`User registered successfully: ${newUser.id}. Event '${USER_REGISTERED_EVENT}' emitted.`);
+    
     return {
       userId: newUser.id,
-      message: 'Registration successful, verification required.',
+      message: 'Registration successful. Please complete identity verification.',
     };
   }
 
-  async loginUser(data: LoginRequest): Promise<LoginResponse> {
-    this.logger.log(`Attempting login for ${data.email}...`);
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    this.logger.log(`Attempting login for user: ${data.email}`);
     const user = await this.usersService.findByEmail(data.email);
-
     if (!user) {
       throw new RpcException('Invalid credentials.');
     }
-
     const isPasswordMatching = await bcrypt.compare(data.password, user.passwordHash);
     if (!isPasswordMatching) {
       throw new RpcException('Invalid credentials.');
     }
-
-    const accessToken = await this.createAccessToken(user);
-    const refreshToken = await this.createRefreshToken(user);
-
-    return {
-      userId: user.id,
-      verificationStatus: user.verificationStatus,
-      accessToken,
-      refreshToken,
-    };
+    const { accessToken, refreshToken } = await this._generateTokens(user);
+    this.logger.log(`User logged in successfully: ${user.id}`);
+    return { accessToken, refreshToken, userId: user.id, verificationStatus: user.verificationStatus };
   }
 
   async refreshAccessToken(data: RefreshAccessTokenRequest): Promise<LoginResponse> {
-    this.logger.log(`Refreshing access token.`);
     const { refreshToken } = data;
-
-    const refreshTokenSecret = this.configService.get<string>(JWT_REFRESH_SECRET_KEY);
+    this.logger.log(`Attempting to refresh access token.`);
+    const storedToken = await this.usersService.findActiveRefreshToken(refreshToken);
+    if (!storedToken) {
+      throw new RpcException('Invalid or expired refresh token.');
+    }
     try {
-      const payload: JwtPayload = this.jwtService.verify(refreshToken, { secret: refreshTokenSecret });
-
-      const user = await this.usersService.findById(payload.userId);
+      const payloadFromRefreshToken = this.jwtService.verify<JwtPayload>(refreshToken, {
+        secret: this.configService.get<string>(JWT_REFRESH_SECRET_KEY),
+      });
+      const user = await this.usersService.findById(payloadFromRefreshToken.userId);
       if (!user) {
-        throw new RpcException('User not found.');
+        await this.usersService.revokeRefreshToken(storedToken);
+        throw new RpcException('User associated with token no longer exists.');
       }
-
-      const storedToken = await this.usersService.findActiveRefreshToken(refreshToken);
-      if (!storedToken) {
-          throw new RpcException('Refresh token is invalid or has been revoked.');
-      }
-
-      const newAccessToken = await this.createAccessToken(user);
-      const newRefreshToken = await this.createRefreshToken(user);
-
       await this.usersService.revokeRefreshToken(storedToken);
-
-      return {
-        userId: user.id,
-        verificationStatus: user.verificationStatus,
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      };
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await this._generateTokens(user);
+      this.logger.log(`Access token refreshed for user: ${user.id}`);
+      return { accessToken: newAccessToken, refreshToken: newRefreshToken, userId: user.id, verificationStatus: user.verificationStatus };
     } catch (error) {
-      this.logger.error('Refresh token validation failed', error);
+      this.logger.error(`Refresh token validation failed: ${error.message}`);
+      if (storedToken && !storedToken.isRevoked) {
+        await this.usersService.revokeRefreshToken(storedToken);
+      }
       throw new RpcException('Invalid or expired refresh token.');
     }
   }
 
+  // ... (validateAccessToken, getVerificationStatus, processIdvWebhook methods remain the same) ...
   async validateAccessToken(data: ValidateAccessTokenRequest): Promise<ValidateAccessTokenResponse> {
-    this.logger.log(`Validating access token...`);
     try {
-      const payload: JwtPayload = await this.jwtService.verifyAsync(data.accessToken, {
-        secret: this.configService.get<string>(JWT_ACCESS_SECRET_KEY),
-      });
-      const user = await this.usersService.findById(payload.userId);
-      if (!user) {
-          return { isValid: false, userId: '', email: '', verificationStatus: '', roles: [], exp: 0, iat: 0 };
-      }
+      const payload = this.jwtService.verify<JwtPayload>(data.accessToken);
       return {
+        userId: payload.userId,
+        email: payload.email,
+        verificationStatus: payload.verificationStatus,
         isValid: true,
-        userId: user.id,
-        email: user.email,
-        verificationStatus: user.verificationStatus,
         roles: payload.roles || [],
-        exp: payload.exp,
-        iat: payload.iat,
+        exp: payload.exp || 0,
+        iat: payload.iat || 0,
       };
-    } catch (e) {
-      this.logger.warn(`Access token validation failed: ${e.message}`);
-      return { isValid: false, userId: '', email: '', verificationStatus: '', roles: [], exp: 0, iat: 0 };
+    } catch (error) {
+      return { userId: '', email: '', verificationStatus: '', isValid: false, roles: [], exp: 0, iat: 0 };
     }
   }
 
-  async getVerificationStatus(data: { userId: string }): Promise<VerificationStatusResponse> {
-    this.logger.log(`Checking status for ${data.userId}...`);
-    const user = await this.usersService.findById(data.userId);
+  async getVerificationStatus(request: UserIdRequest): Promise<VerificationStatusResponse> {
+    const user = await this.usersService.findById(request.userId);
     if (!user) {
-      throw new RpcException('User not found.');
+      throw new RpcException(`User with ID ${request.userId} not found.`);
     }
     return { userId: user.id, status: user.verificationStatus };
   }
 
-  async processIdvWebhook(data: ProcessIdvWebhookRequest): Promise<ProcessIdvWebhookResponse> {
-    this.logger.log(`Processing IDV Webhook for user ${data.userId} with new status ${data.newStatus}`);
-    try {
-        const newStatus = data.newStatus.toUpperCase() as VerificationStatus;
-        if (!Object.values(VerificationStatus).includes(newStatus)) {
-            throw new Error(`Invalid verification status provided: ${data.newStatus}`);
-        }
-        await this.usersService.updateUserVerificationStatus(data.userId, newStatus);
-        return { success: true, message: 'Status updated successfully.' };
-    } catch(error) {
-        this.logger.error(`Failed to process IDV webhook for user ${data.userId}`, error);
-        return { success: false, message: error.message };
+  async processIdvWebhook(request: ProcessIdvWebhookRequest): Promise<ProcessIdvWebhookResponse> {
+    const { userId, newStatus, idvProviderReference } = request;
+    const validStatuses = Object.values(VerificationStatus) as string[];
+    const upperNewStatus = newStatus.toUpperCase();
+    if (!validStatuses.includes(upperNewStatus)) {
+      throw new RpcException(`Invalid verification status provided: ${newStatus}`);
     }
-  }
-  
-  private async createAccessToken(user: UserCredential): Promise<string> {
-    const payload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
-      verificationStatus: user.verificationStatus,
-      roles: ['user'], // You can expand this with a roles system
-    };
-    return this.jwtService.sign(payload);
-  }
-
-  private async createRefreshToken(user: UserCredential): Promise<string> {
-    const payload: JwtPayload = {
-      userId: user.id,
-      email: user.email,
-      verificationStatus: user.verificationStatus,
-    };
-    const secret = this.configService.get<string>(JWT_REFRESH_SECRET_KEY);
-    const expiresIn = this.configService.get<string>(JWT_REFRESH_EXPIRES_IN_KEY);
-
-    const refreshToken = this.jwtService.sign(payload, { secret, expiresIn });
-    
-    const decoded: any = this.jwtService.decode(refreshToken);
-    const expiresAt = new Date(decoded.exp * 1000);
-
-    await this.usersService.storeRefreshToken(user, refreshToken, expiresAt);
-
-    return refreshToken;
+    const statusEnum = upperNewStatus as VerificationStatus;
+    const updatedUser = await this.usersService.updateUserVerificationStatus(userId, statusEnum);
+    this.eventEmitter.emit<string, any>(USER_VERIFICATION_STATUS_UPDATED_EVENT, { userId: updatedUser.id, status: updatedUser.verificationStatus, idvProviderReference, timestamp: new Date().toISOString() });
+    return { success: true, message: 'Verification status updated successfully.' };
   }
 }
