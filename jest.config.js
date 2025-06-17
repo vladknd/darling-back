@@ -9,6 +9,7 @@ module.exports = {
       // It's crucial for monorepo path aliases like @app/*
       '^@app/common(|/.*)$': '<rootDir>/libs/common/src/$1',
       '^@app/proto-definitions(|/.*)$': '<rootDir>/libs/proto-definitions/src/$1',
+      '^@bufbuild/protobuf/wire$': '@bufbuild/protobuf',
     },
   
     // A preset that is used as a base for Jest's configuration

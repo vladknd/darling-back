@@ -24,6 +24,7 @@
     "proto:user": "npx protoc --plugin=protoc-gen-ts_proto --ts_proto_out=./libs/proto-definitions/src --ts_proto_opt=nestJs=true,env=node --proto_path=./libs/proto-definitions/src ./libs/proto-definitions/src/user.proto"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.5.2",
     "@grpc/grpc-js": "^1.13.3",
     "@grpc/proto-loader": "^0.7.15",
     "@nestjs/common": "^11.1.0",
