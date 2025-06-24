@@ -44,6 +44,36 @@ services:
       - backend_network
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile # Assuming you have a Dockerfile for api-gateway
+    container_name: api_gateway_app_dev
+    environment:
+      NODE_ENV: development
+      PORT: ${API_GATEWAY_PORT:-3000} # Expose HTTP port for the gateway
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # This needs to be accessible from Google's servers.
+      # For local testing, use http://localhost:<HOST_PORT>/auth/google/redirect
+      GOOGLE_CALLBACK_URL: http://localhost:${API_GATEWAY_PORT:-3000}/auth/google/redirect
+      AUTH_SERVICE_GRPC_URL: auth-service:50051 # Connect to auth-service container
+      AUTH_PACKAGE_NAME: auth
+      CHOKIDAR_USEPOLLING: "true" # For hot-reloading in Docker
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:${API_GATEWAY_PORT:-3000}" # Expose API Gateway HTTP port
+    depends_on:
+      - auth-service # Depends on auth-service being ready for gRPC callsOkay also provide the docker file.
+    volumes:
+      - ./apps/api-gateway:/usr/src/app/apps/api-gateway
+      - ./libs:/usr/src/app/libs
+      - /usr/src/app/node_modules # Preserve container's node_modules
+    networks:
+      - backend_network
+    restart: unless-stopped
+    # CMD can be in Dockerfile, or define it here:
+    # command: npm run start:dev api-gateway
+
   auth-service:
     build:
       context: .
