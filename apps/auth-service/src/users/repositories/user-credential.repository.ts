@@ -28,6 +28,14 @@ export class UserCredentialRepository extends Repository<UserCredential> {
     return this.findOne({ where: { email } });
   }
 
+  async findByEmailForAuth(email: string): Promise<UserCredential | null> {
+    this.logger.debug(`Repository: Finding user credential by email for auth: ${email}`);
+    return this.findOne({ 
+      where: { email },
+      select: ['id', 'email', 'passwordHash', 'verificationStatus', 'createdAt', 'updatedAt']
+    });
+  }
+  
   async findById(id: string): Promise<UserCredential | null> {
     this.logger.debug(`Repository: Finding user credential by ID: ${id}`);
     return this.findOne({ where: { id } });

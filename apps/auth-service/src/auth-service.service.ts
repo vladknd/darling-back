@@ -107,7 +107,7 @@ export class AuthService {
 
   async login(data: LoginRequest): Promise<LoginResponse> {
     this.logger.log(`Attempting login for user: ${data.email}`);
-    const user = await this.usersService.findByEmail(data.email);
+    const user = await this.usersService.findByEmailForAuth(data.email);
     if (!user) {
       throw new RpcException('Invalid credentials.');
     }

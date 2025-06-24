@@ -26,6 +26,11 @@ export class UsersService {
     return this.userCredentialRepository.findByEmail(email);
   }
 
+  async findByEmailForAuth(email: string): Promise<UserCredential | null> {
+    this.logger.debug(`Finding user credential by email for auth: ${email}`);
+    return this.userCredentialRepository.findByEmailForAuth(email);
+  }
+
   async findById(id: string): Promise<UserCredential | null> {
     this.logger.debug(`Finding user credential by ID: ${id}`);
     return this.userCredentialRepository.findById(id);

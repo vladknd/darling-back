@@ -17,8 +17,8 @@ import {
 // Create a mock AuthService with all the methods we need to test.
 // jest.fn() creates a mock function that we can spy on.
 const mockAuthService = {
-  registerUser: jest.fn(),
-  loginUser: jest.fn(),
+  register: jest.fn(),
+  login: jest.fn(),
   refreshAccessToken: jest.fn(),
   validateAccessToken: jest.fn(),
   getVerificationStatus: jest.fn(),
@@ -55,7 +55,7 @@ describe('AuthServiceController', () => {
     it('should call authService.registerUser with the correct payload', async () => {
       const payload: RegisterRequest = { email: 'test@example.com', password: 'password' };
       const expectedResult = { userId: '123', message: 'Success' };
-      mockAuthService.registerUser.mockResolvedValue(expectedResult);
+      mockAuthService.register.mockResolvedValue(expectedResult);
 
       const result = await controller.register(payload);
 
@@ -75,7 +75,7 @@ describe('AuthServiceController', () => {
     it('should call authService.loginUser with the correct payload', async () => {
       const payload: LoginRequest = { email: 'test@example.com', password: 'password' };
       const expectedResult = { accessToken: 'abc', refreshToken: 'def', userId: '123', verificationStatus: 'VERIFIED' };
-      mockAuthService.loginUser.mockResolvedValue(expectedResult);
+      mockAuthService.login.mockResolvedValue(expectedResult);
 
       const result = await controller.login(payload);
 
